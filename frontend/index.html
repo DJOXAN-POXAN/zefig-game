@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Зефирные космолёты</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <style>
+        .main-card { max-width: 420px; width: 100%; margin: 0 auto; }
+        .divider { border: 0; height: 1px; background: var(--card-border); margin: 20px 0; }
+        .join-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .join-row input { flex: 1; min-width: 120px; }
+        .rules-btn { background: transparent; border: 1px solid var(--card-border); color: var(--text-dim); margin-top: 12px; }
+    </style>
+</head>
+<body>
+    <div class="wrap center-screen">
+        <div class="title-emoji">🚀🍬</div>
+        <h1>Зефирные космолёты</h1>
+        <div class="card main-card stack">
+            <h2>Создать игру</h2>
+            <button onclick="location.href='/admin'" class="secondary" style="width:100%;">Я ведущий →</button>
+            <hr class="divider" />
+            <h2>Присоединиться</h2>
+            <div class="join-row">
+                <input type="text" id="roomCode" placeholder="Код комнаты" maxlength="5" style="text-transform:uppercase;" />
+                <input type="text" id="teamName" placeholder="Название команды" />
+            </div>
+            <button id="joinBtn" style="width:100%;">Войти</button>
+            <div id="joinMsg" class="muted"></div>
+            <button class="rules-btn" onclick="openRules()">📖 Правила игры</button>
+        </div>
+    </div>
+    <script>
+        document.getElementById('joinBtn').addEventListener('click', async () => {
+            const code = document.getElementById('roomCode').value.trim().toUpperCase();
+            const name = document.getElementById('teamName').value.trim();
+            const msg = document.getElementById('joinMsg');
+            if (!code || !name) { msg.textContent = '❌ Заполните все поля'; return; }
+            try {
+                const res = await fetch(`/api/games/${code}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Ошибка');
+                const params = new URLSearchParams({ room: code, token: data.token });
+                window.location.href = `/team?${params}`;
+            } catch (e) {
+                msg.textContent = '❌ ' + e.message;
+            }
+        });
+    </script>
+</body>
+</html>

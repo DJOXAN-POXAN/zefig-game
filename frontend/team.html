@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Команда – Зефирные космолёты</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/common.js"></script>
+    <style>
+        .ship-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 700px) { .ship-grid { grid-template-columns: 1fr; } }
+        .board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 12px; }
+        .board-card { background: #141a45; border-radius: 12px; padding: 12px; border: 1px solid var(--card-border); }
+        .board-card .name { font-weight: 700; }
+        .board-card .rating { color: var(--yellow); }
+        .action-btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .action-btn-group button { flex: 1; min-width: 80px; }
+        .module-upgrade-btn { font-size: .8rem; padding: 4px 10px; }
+    </style>
+</head>
+<body>
+    <div class="wrap" id="app">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <h1>🚀 <span id="teamNameDisplay">Команда</span></h1>
+            <div>
+                <button class="ghost" onclick="openRules()">📖 Правила</button>
+                <span class="pill phase-badge phase-lobby" id="phaseBadgeTeam">Ожидание</span>
+            </div>
+        </div>
+        <div id="teamPanel">
+            <div class="ship-grid">
+                <div class="card">
+                    <h2>Мой корабль</h2>
+                    <div><strong>Монеты:</strong> <span id="coinsDisplay" class="coins">0</span></div>
+                    <div id="modulesContainer"></div>
+                    <div id="upgradeSection" style="margin-top:12px; display:none;">
+                        <h4>Прокачка</h4>
+                        <div id="upgradeButtons" class="action-btn-group"></div>
+                        <div id="upgradeMsg" class="muted"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Действия в битве</h2>
+                    <div id="battleSection" style="display:none;">
+                        <p>Выберите цель и действие:</p>
+                        <select id="targetSelect" style="width:100%; margin-bottom:8px;"></select>
+                        <div class="action-btn-group">
+                            <button id="attackBtn" class="danger">⚔️ Атака (30)</button>
+                            <button id="scoutBtn" class="secondary">🔭 Разведка</button>
+                            <button id="repairBtn" class="mint">🔧 Восстановление (40)</button>
+                        </div>
+                        <div id="actionMsg" class="muted"></div>
+                        <div id="myActionsContainer" style="margin-top:12px;"></div>
+                    </div>
+                    <div id="noBattleMsg" class="muted">Действия доступны только в фазе «Звёздная битва»</div>
+                </div>
+            </div>
+            <div class="card" style="margin-top:16px;">
+                <h3>Космическая доска</h3>
+                <div id="boardContainer" class="board-grid"><p class="muted">Нет других кораблей</p></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = null;
+        let ws = null;
+        let myTeamId = null;
+        let selectedTargetId = null;
+
+        async function initTeam() {
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            const token = params.get('token');
+            if (!room || !token) {
+                document.getElementById('teamPanel').innerHTML = '<p class="muted">❌ Не указан код или токен</p>';
+                return;
+            }
+            // Получим начальное состояние через REST
+            try {
+                const data = await apiGet(`/api/games/${room}/state?token=${token}&role=team`);
+                onState({ type: 'state', ...data });
+            } catch(e) { toast('Ошибка загрузки', true); }
+
+            ws = connectWs(room, token, 'team', onState, () => toast('Переподключение...', true));
+
+            // Обработчики кнопок
+            document.getElementById('attackBtn').addEventListener('click', () => sendAction('attack'));
+            document.getElementById('scoutBtn').addEventListener('click', () => sendAction('scout'));
+            document.getElementById('repairBtn').addEventListener('click', () => {
+                // для восстановления нужно выбрать модуль
+                const mod = prompt('Какой модуль восстановить? (attack/defense/scout/stealth)');
+                if (mod && ['attack','defense','scout','stealth'].includes(mod)) {
+                    sendAction('repair', mod);
+                } else {
+                    toast('Некорректный модуль', true);
+                }
+            });
+        }
+
+        function onState(state) {
+            if (state.type !== 'state') return;
+            gameState = state;
+            render();
+        }
+
+        function render() {
+            if (!gameState) return;
+            const s = gameState;
+            const me = s.me;
+            if (!me) return;
+
+            document.getElementById('teamNameDisplay').textContent = me.name;
+            document.getElementById('coinsDisplay').textContent = me.coins;
+
+            // Фаза
+            const phaseMap = { lobby: 'Ожидание', challenge: 'Космический вызов', upgrade: 'Техобслуживание', battle: 'Звёздная битва', finished: 'Игра завершена' };
+            const phaseBadge = document.getElementById('phaseBadgeTeam');
+            phaseBadge.textContent = phaseMap[s.phase] || s.phase;
+            phaseBadge.className = 'pill phase-badge phase-' + s.phase;
+
+            // Модули
+            const modules = ['attack','defense','scout','stealth'];
+            const labels = { attack: 'Атака', defense: 'Защита', scout: 'Разведка', stealth: 'Скрытность' };
+            const cls = { attack: 'attack', defense: 'defense', scout: 'scout', stealth: 'stealth' };
+            let html = '';
+            modules.forEach(mod => {
+                const lvl = me[mod];
+                html += moduleBar(labels[mod], cls[mod], lvl);
+            });
+            document.getElementById('modulesContainer').innerHTML = html;
+
+            // Прокачка (только в фазе upgrade)
+            const upgradeSection = document.getElementById('upgradeSection');
+            if (s.phase === 'upgrade' && s.upgrade_costs) {
+                upgradeSection.style.display = 'block';
+                let btns = '';
+                modules.forEach(mod => {
+                    const cost = s.upgrade_costs[mod];
+                    const lvl = me[mod];
+                    const label = labels[mod];
+                    if (cost === null) {
+                        btns += `<button disabled class="module-upgrade-btn">${label} макс.</button>`;
+                    } else {
+                        btns += `<button class="module-upgrade-btn yellow" onclick="upgradeModule('${mod}')">${label} → ${lvl+1} (${cost}🪙)</button>`;
+                    }
+                });
+                document.getElementById('upgradeButtons').innerHTML = btns;
+                document.getElementById('upgradeMsg').textContent = '';
+            } else {
+                upgradeSection.style.display = 'none';
+            }
+
+            // Битва
+            const battleSection = document.getElementById('battleSection');
+            const noBattleMsg = document.getElementById('noBattleMsg');
+            if (s.phase === 'battle') {
+                battleSection.style.display = 'block';
+                noBattleMsg.style.display = 'none';
+                // Заполняем select целями
+                const select = document.getElementById('targetSelect');
+                const currentTarget = select.value;
+                select.innerHTML = '';
+                s.board.forEach(t => {
+                    if (t.id === me.id) return;
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name + ' (рейтинг ' + t.rating + ')';
+                    select.appendChild(opt);
+                });
+                if (select.options.length === 0) {
+                    select.innerHTML = '<option value="">Нет целей</option>';
+                }
+                // Восстанавливаем выбранную цель
+                if (currentTarget && select.querySelector(`option[value="${currentTarget}"]`)) {
+                    select.value = currentTarget;
+                }
+                // Отображаем свои действия
+                if (s.my_actions && s.my_actions.length) {
+                    let ahtml = '<div class="muted" style="font-size:.9rem;">Ваши действия в этом раунде:</div>';
+                    s.my_actions.forEach(a => {
+                        const statusMap = { pending: '⏳ ожидает', applied: '✅ выполнено', rejected: '❌ отклонено' };
+                        ahtml += `<div>${ACTION_LABEL[a.action_type] || a.action_type} ${a.target_team_id ? '➜ ' + (s.board.find(t=>t.id===a.target_team_id)?.name || '?') : ''} ${a.module ? '🔧'+a.module : ''} — ${statusMap[a.status] || a.status}</div>`;
+                    });
+                    document.getElementById('myActionsContainer').innerHTML = ahtml;
+                } else {
+                    document.getElementById('myActionsContainer').innerHTML = '<div class="muted">Вы ещё не совершали действий в этом раунде.</div>';
+                }
+            } else {
+                battleSection.style.display = 'none';
+                noBattleMsg.style.display = 'block';
+            }
+
+            // Доска
+            const board = s.board || [];
+            let boardHtml = '';
+            board.forEach(t => {
+                const isMe = t.id === me.id;
+                const cls = isMe ? ' ship-card me' : ' ship-card';
+                boardHtml += `<div class="${cls}">`;
+                boardHtml += `<div class="name">${t.name} ${isMe ? '⭐' : ''}</div>`;
+                boardHtml += `<div class="rating">Рейтинг: ${t.rating}</div>`;
+                if (t.coins !== undefined) boardHtml += `<div>🪙 ${t.coins}</div>`;
+                if (t.attack !== undefined) boardHtml += `<div>⚔️ ${t.attack}</div>`;
+                if (t.defense !== undefined) boardHtml += `<div>🛡️ ${t.defense}</div>`;
+                if (t.scout !== undefined) boardHtml += `<div>🔭 ${t.scout}</div>`;
+                if (t.stealth !== undefined) boardHtml += `<div>🕶️ ${t.stealth}</div>`;
+                if (t.revealed) boardHtml += `<div class="muted" style="font-size:.8rem;">🔍 раскрыт</div>`;
+                boardHtml += '</div>';
+            });
+            document.getElementById('boardContainer').innerHTML = boardHtml || '<p class="muted">Нет других кораблей</p>';
+        }
+
+        // ---- Прокачка ----
+        window.upgradeModule = async (mod) => {
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            const token = params.get('token');
+            try {
+                await apiPost(`/api/games/${room}/team/upgrade`, { token, module: mod });
+                document.getElementById('upgradeMsg').textContent = '✅ Улучшено!';
+            } catch(e) {
+                document.getElementById('upgradeMsg').textContent = '❌ ' + e.message;
+            }
+        };
+
+        // ---- Действия в битве ----
+        async function sendAction(actionType, module = null) {
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            const token = params.get('token');
+            const targetId = document.getElementById('targetSelect').value;
+            if (!targetId && actionType !== 'repair') {
+                document.getElementById('actionMsg').textContent = '❌ Выберите цель';
+                return;
+            }
+            const body = { token, action_type: actionType };
+            if (targetId) body.target_team_id = targetId;
+            if (module) body.module = module;
+            try {
+                await apiPost(`/api/games/${room}/team/action`, body);
+                document.getElementById('actionMsg').textContent = '✅ Действие отправлено на подтверждение ведущему!';
+            } catch(e) {
+                document.getElementById('actionMsg').textContent = '❌ ' + e.message;
+            }
+        }
+
+        initTeam();
+    </script>
+</body>
+</html>
