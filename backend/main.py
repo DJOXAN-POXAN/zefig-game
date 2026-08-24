@@ -17,10 +17,13 @@ from database import Base, engine, get_db
 import models as m
 import game_logic as gl
 from ws_manager import manager
+from database import engine
+import models
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Зефирные космолёты")
+models.Base.metadata.create_all(bind=engine)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
