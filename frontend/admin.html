@@ -87,7 +87,26 @@
         const historyContainer = document.getElementById('historyContainer');
         const scoreSection = document.getElementById('scoreSection');
         const scoreInputs = document.getElementById('scoreInputs');
+        
+// ---- опрос состояния (polling) ----
+let pollInterval = null;
 
+function startPolling() {
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(async () => {
+        const params = new URLSearchParams(window.location.search);
+        const room = params.get('room');
+        const token = params.get('token');
+        if (!room || !token) return;
+        try {
+            const data = await apiGet(`/api/games/${room}/state?token=${token}&role=admin`);
+            if (data.type === 'state') {
+                gameState = data;
+                render();
+            }
+        } catch (e) {}
+    }, 3000);
+}
         // ---- инициализация ----
         async function initAdmin() {
             const params = new URLSearchParams(window.location.search);
@@ -101,6 +120,8 @@
                 ws = connectWs(room, token, 'admin', onState, () => {
                     toast('Соединение потеряно, переподключаемся...', true);
                 });
+                startPolling();
+
                 // Загрузим начальное состояние через REST (для подстраховки)
                 try {
                     const data = await apiGet(`/api/games/${room}/state?token=${token}&role=admin`);
