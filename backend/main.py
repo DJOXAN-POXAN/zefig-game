@@ -276,7 +276,7 @@ async def admin_score(room_code: str, body: ScoreIn, db: Session = Depends(get_d
         team = next((t for t in game.teams if t.id == team_id), None)
         if not team:
             continue
-        points = max(0, min(20, int(points)))
+        points = max(0, int(points))
         team.coins += points
         log(db, game, f"«{team.name}» получает {points} монет за раунд {game.round_number}.")
     await push(db, game)
