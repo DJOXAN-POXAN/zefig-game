@@ -12,6 +12,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import sys
+from pathlib import Path
+
+# Добавляем папку backend в путь поиска модулей
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from database import Base, engine, get_db
 import models as m
@@ -498,6 +503,10 @@ async def ws_endpoint(websocket: WebSocket, room_code: str, token: str, role: st
 
 
 # -------------------------------------------------------- статика фронтенда
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent  # корень проекта
+FRONTEND_DIR = BASE_DIR / "frontend"
 
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 
