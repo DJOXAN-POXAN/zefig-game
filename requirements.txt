@@ -1,5 +1,6 @@
 fastapi
-uvicorn[standard]
+uvicorn
 sqlalchemy
 python-multipart
 websockets
+psycopg2-binary
