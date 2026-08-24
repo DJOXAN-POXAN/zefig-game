@@ -15,6 +15,7 @@ from pydantic import BaseModel
 import sys
 from pathlib import Path
 
+
 # Добавляем папку backend в путь поиска модулей
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -503,24 +504,24 @@ async def ws_endpoint(websocket: WebSocket, room_code: str, token: str, role: st
 
 
 # -------------------------------------------------------- статика фронтенда
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent  # корень проекта
+# Определяем пути
+BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 
-app.mount("/static", StaticFiles(directory="../frontend"), name="static")
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 @app.get("/")
 def root():
-    return FileResponse("../frontend/index.html")
+    return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 
 @app.get("/admin")
 def admin_page():
-    return FileResponse("../frontend/admin.html")
+    return FileResponse(str(FRONTEND_DIR / "admin.html"))
 
 
 @app.get("/team")
 def team_page():
-    return FileResponse("../frontend/team.html")
+    return FileResponse(str(FRONTEND_DIR / "team.html"))
