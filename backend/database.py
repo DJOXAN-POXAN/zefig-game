@@ -7,22 +7,27 @@ from sqlalchemy.ext.declarative import declarative_base
 # Для локальной разработки используем SQLite (по умолчанию)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./game.db")
 
-# Настройка движка в зависимости от типа базы данных
-if DATABASE_URL.startswith("postgresql"):
-    # Для Neon / PostgreSQL
-    engine = create_engine(
-        DATABASE_URL,
-        pool_pre_ping=True,    # Проверяет соединение перед использованием
-        pool_recycle=300,      # Пересоздаёт соединения каждые 5 минут
-        pool_size=5,           # Максимум соединений в пуле
-        max_overflow=0,        # Не создавать дополнительные соединения
-    )
-else:
-    # Для SQLite (локальная разработка)
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False}
-    )
+try:
+    if DATABASE_URL.startswith("postgresql"):
+        print("🔄 Подключение к PostgreSQL (Neon)...")
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            pool_size=5,
+            max_overflow=0,
+        )
+    else:
+        print("🔄 Подключение к SQLite (локально)...")
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"check_same_thread": False}
+        )
+    print("✅ Подключение к базе данных успешно установлено")
+except Exception as e:
+    print(f"❌ КРИТИЧЕСКАЯ ОШИБКА ПОДКЛЮЧЕНИЯ К БД: {e}")
+    # Если база не подключается — лучше выбросить исключение, чтобы приложение не стартовало
+    raise
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
