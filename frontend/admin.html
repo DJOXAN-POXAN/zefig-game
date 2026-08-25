@@ -276,19 +276,24 @@ if (s.phase === 'challenge' && s.teams && s.teams.length) {
 
         // ---- создание/загрузка ----
         document.getElementById('createGameBtn').addEventListener('click', async () => {
-            try {
-                const res = await fetch('/api/games', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ total_rounds: 5, max_teams: 6 })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail);
-                window.location.href = `/admin?room=${data.room_code}&token=${data.admin_token}`;
-            } catch(e) {
-                document.getElementById('adminMsg').textContent = '❌ ' + e.message;
-            }
+    const password = document.getElementById('adminPasswordInput').value.trim();
+    if (password !== 'FIMOZIK1') {
+        document.getElementById('adminMsg').textContent = '❌ Неверный пароль ведущего!';
+        return;
+    }
+    try {
+        const res = await fetch('/api/games', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ total_rounds: 5, max_teams: 6 })
         });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail);
+        window.location.href = `/admin?room=${data.room_code}&token=${data.admin_token}`;
+    } catch(e) {
+        document.getElementById('adminMsg').textContent = '❌ ' + e.message;
+    }
+});
 
         document.getElementById('loadGameBtn').addEventListener('click', () => {
             const room = document.getElementById('adminRoomInput').value.trim().toUpperCase();
