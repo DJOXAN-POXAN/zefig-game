@@ -410,17 +410,17 @@ async def admin_confirm_action(room_code: str, body: ConfirmActionIn, db: Sessio
 
     team.coins -= action.cost
 
-    elif action.action_type == "attack":
-    target = next((t for t in game.teams if t.id == action.target_team_id), None)
-    # Проверяем, есть ли у цели щит
-    has_shield = hasattr(target, 'shield_active') and target.shield_active
-    damage, hit_module, text = gl.resolve_attack(team, target, has_shield)
-    # Если щит был, он уже снят внутри функции resolve_attack (она возвращает урон 0)
-    # Но нужно также снять флаг shield_active, если он был
-    if has_shield:
-        target.shield_active = False
-    action.result_text = text
-    log(db, game, text)
+    if action.action_type == "attack":
+        target = next((t for t in game.teams if t.id == action.target_team_id), None)
+        # Проверяем, есть ли у цели щит
+        has_shield = hasattr(target, 'shield_active') and target.shield_active
+        damage, hit_module, text = gl.resolve_attack(team, target, has_shield)
+        # Если щит был, он снимается внутри resolve_attack, но мы также сбросим флаг
+        if has_shield:
+            target.shield_active = False
+        action.result_text = text
+        log(db, game, text)
+
     elif action.action_type == "scout":
         target_id = action.target_team_id
         current = scouted_ids(team)
@@ -429,6 +429,7 @@ async def admin_confirm_action(room_code: str, body: ConfirmActionIn, db: Sessio
         target = next((t for t in game.teams if t.id == target_id), None)
         action.result_text = f"«{team.name}» провёл(а) разведку «{target.name}»."
         log(db, game, action.result_text)
+
     elif action.action_type == "repair":
         mod = action.module
         current = getattr(team, f"lvl_{mod}")
