@@ -63,14 +63,15 @@
 
         <!-- Начальная форма создания/загрузки -->
         <div id="setupPanel" class="card stack" style="max-width:400px;">
-            <input type="text" id="adminRoomInput" placeholder="Код комнаты (для загрузки)" maxlength="5" style="text-transform:uppercase;" />
-            <input type="text" id="adminTokenInput" placeholder="Токен ведущего (для загрузки)" />
-            <div class="row">
-                <button id="createGameBtn" style="flex:1;">✨ Создать игру</button>
-                <button id="loadGameBtn" class="secondary" style="flex:1;">📂 Загрузить</button>
-            </div>
-            <div id="adminMsg" class="muted"></div>
-        </div>
+    <input type="text" id="adminRoomInput" placeholder="Код комнаты (для загрузки)" maxlength="5" style="text-transform:uppercase;" />
+    <input type="text" id="adminTokenInput" placeholder="Токен ведущего (для загрузки)" />
+    <input type="password" id="adminPasswordInput" placeholder="Пароль ведущего" />
+    <div class="row">
+        <button id="createGameBtn" style="flex:1;">✨ Создать игру</button>
+        <button id="loadGameBtn" class="secondary" style="flex:1;">📂 Загрузить</button>
+    </div>
+    <div id="adminMsg" class="muted"></div>
+</div>
     </div>
 
     <script>
