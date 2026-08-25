@@ -210,6 +210,66 @@ class TeamActionIn(BaseModel):
 
 # ------------------------------------------------------------- endpoints --
 
+@app.post("/api/games/{room_code}/team/buy_service")
+async def buy_service(room_code: str, body: dict, db: Session = Depends(get_db)):
+    token = body.get("token")
+    service = body.get("service")  # "shield", "mass_attack", "theft", "boost", "double"
+    game, team = require_team(db, room_code, token)
+    if game.phase != "upgrade":
+        raise HTTPException(400, "Покупка доступна только в фазе Техобслуживания")
+    
+    # Цены и проверка
+    prices = {"shield": 50, "mass_attack": 80, "theft": 60, "boost": 40, "double": 70}
+    if service not in prices:
+        raise HTTPException(400, "Неизвестная услуга")
+    cost = prices[service]
+    
+    # Скидка от Тактики (уровень 5)
+    if team.lvl_tactics >= 5:
+        cost = int(cost * 0.8)  # 20% скидка
+    
+    if team.coins < cost:
+        raise HTTPException(400, "Недостаточно монет")
+    
+    team.coins -= cost
+    # Применяем эффект
+    if service == "shield":
+        team.shield_active = True
+    elif service == "mass_attack":
+        # Наносим урон всем противникам
+        for target in game.teams:
+            if target.id == team.id:
+                continue
+            dmg = max(1, team.lvl_attack // 2)
+            # Если у цели есть щит, он снимается, урон не проходит
+            if target.shield_active:
+                target.shield_active = False
+                continue
+            # снижаем случайный модуль у цели на 1 (не ниже 1)
+            mods = [m for m in gl.MODULES if getattr(target, f"lvl_{m}") > 1]
+            if mods:
+                chosen = random.choice(mods)
+                setattr(target, f"lvl_{chosen}", getattr(target, f"lvl_{chosen}") - 1)
+        log(db, game, f"«{team.name}» провёл массовую атаку!")
+    elif service == "theft":
+        # Кража у случайной команды (кроме себя)
+        targets = [t for t in game.teams if t.id != team.id and t.coins > 0]
+        if not targets:
+            raise HTTPException(400, "Некого грабить (у всех 0 монет)")
+        target = random.choice(targets)
+        stolen = min(30, target.coins)
+        target.coins -= stolen
+        team.coins += stolen
+        log(db, game, f"«{team.name}» украл {stolen} монет у «{target.name}»")
+    elif service == "boost":
+        team.free_upgrade = True
+    elif service == "double":
+        team.double_action = True
+    
+    db.commit()
+    await push(db, game)
+    return {"ok": True, "message": f"Услуга «{service}» применена"}
+
 @app.post("/api/games")
 def create_game(body: CreateGameIn, db: Session = Depends(get_db)):
     code = gen_room_code()
