@@ -39,20 +39,24 @@ def scout_free_uses(team) -> int:
     return 1
 
 
-def resolve_attack(attacker, target) -> tuple[int, str | None, str]:
+def resolve_attack(attacker, target, target_has_shield=False):
     """
     Возвращает (нанесённый_урон, имя_модуля_получившего_урон, сообщение).
-    Урон = атака атакующего - защита цели (минимум 0).
-    Если урон > 0, снижаем случайный модуль цели на 1 (не ниже 1).
+    Если у цели активен щит, урон равен 0, и щит снимается.
     """
     import random
+
+    # Проверяем щит
+    if target_has_shield:
+        return 0, None, "Атака заблокирована щитом!"
+
     dmg = max(0, attacker.lvl_attack - target.lvl_defense)
     if dmg <= 0:
         return 0, None, f"Атака не нанесла урона (защита {target.name} поглотила всё)."
 
     # Выбираем случайный модуль цели, который можно понизить (кроме тех, что уже 1)
     mods = []
-    for m in MODULES:
+    for m in ["attack", "defense", "energy", "tactics"]:   # новые модули
         if getattr(target, f"lvl_{m}") > 1:
             mods.append(m)
     if not mods:
@@ -61,5 +65,5 @@ def resolve_attack(attacker, target) -> tuple[int, str | None, str]:
     chosen = random.choice(mods)
     new_lvl = getattr(target, f"lvl_{chosen}") - 1
     setattr(target, f"lvl_{chosen}", new_lvl)
-    names = {"attack": "Атака", "defense": "Защита", "scout": "Разведка", "stealth": "Скрытность"}
+    names = {"attack": "Атака", "defense": "Защита", "energy": "Энергия", "tactics": "Тактика"}
     return dmg, chosen, f"«{attacker.name}» наносит {dmg} урона «{target.name}» и снижает модуль «{names[chosen]}» до {new_lvl}."
