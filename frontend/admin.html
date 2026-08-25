@@ -217,20 +217,29 @@ function startPolling() {
             }
 
             // Форма начисления очков (только в фазе challenge)
-            if (s.phase === 'challenge' && s.teams && s.teams.length) {
-                scoreSection.style.display = 'block';
-                let html = '';
-                s.teams.forEach(t => {
-                    html += `<div class="row" style="justify-content:space-between;">
-                        <span>${t.name}</span>
-                        <input type="number" class="score-input" data-team="${t.id}" value="0" min="0" max="20" />
-                    </div>`;
-                });
-                scoreInputs.innerHTML = html;
-            } else {
-                scoreSection.style.display = 'none';
-            }
-        }
+if (s.phase === 'challenge' && s.teams && s.teams.length) {
+    scoreSection.style.display = 'block';
+    
+    // --- 1. Сохраняем текущие значения из полей ввода ---
+    let savedValues = {};
+    document.querySelectorAll('.score-input').forEach(inp => {
+        savedValues[inp.dataset.team] = inp.value;
+    });
+    
+    // --- 2. Строим новый HTML с восстановленными значениями ---
+    let html = '';
+    s.teams.forEach(t => {
+        const val = savedValues[t.id] !== undefined ? savedValues[t.id] : '0';
+        html += `<div class="row" style="justify-content:space-between;">
+            <span>${t.name}</span>
+            <input type="number" class="score-input" data-team="${t.id}" value="${val}" min="0" />
+        </div>`;
+    });
+    scoreInputs.innerHTML = html;
+} else {
+    scoreSection.style.display = 'none';
+}
+          
 
         // ---- подтверждение действий ----
         window.confirmAction = async (actionId, approve) => {
