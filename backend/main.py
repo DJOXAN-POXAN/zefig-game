@@ -224,9 +224,9 @@ async def buy_service(room_code: str, body: dict, db: Session = Depends(get_db))
         raise HTTPException(400, "Неизвестная услуга")
     cost = prices[service]
     
-    # Скидка от Тактики (уровень 5)
-    if team.lvl_tactics >= 5:
-        cost = int(cost * 0.8)  # 20% скидка
+    # Скидка от Тактики (используем lvl_stealth как Тактику)
+    if team.lvl_stealth >= 5:
+    cost = int(cost * 0.8)  # 20% скидка
     
     if team.coins < cost:
         raise HTTPException(400, "Недостаточно монет")
