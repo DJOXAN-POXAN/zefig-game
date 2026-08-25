@@ -56,6 +56,10 @@ class Team(Base):
     lvl_defense = Column(Integer, default=1)
     lvl_scout = Column(Integer, default=1)
     lvl_stealth = Column(Integer, default=1)
+    shield_active = Column(Boolean, default=False)       # Щит активен?
+    free_upgrade = Column(Boolean, default=False)        # Бесплатное улучшение?
+    double_action = Column(Boolean, default=False)       # Двойной ход?
+    extra_income = Column(Boolean, default=False)        # Бонусные монеты от энергии? (можно не хранить, а вычислять по уровню)
 
     # разведка: до конца раунда действует "снятая завеса" над указанными целями
     scouted_targets = Column(Text, default="")  # comma-separated team ids
