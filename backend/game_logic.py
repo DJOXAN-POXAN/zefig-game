@@ -19,8 +19,9 @@ def visible_fields(stealth_level: int) -> list:
     if stealth_level < 4:
         base.append("defense")
     if stealth_level < 5:
-        base.append("scout")   # уровень разведки обычно не скрывается полностью, но по логике игры скрытность может скрывать и её
-    # Скрытность 5 скрывает все модули, оставляя только имя и рейтинг.
+        base.append("scout")
+    # Всегда показываем уровень скрытности, чтобы видеть иконку мозга
+    base.append("stealth")
     return base
 
 
