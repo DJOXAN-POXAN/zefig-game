@@ -211,6 +211,7 @@ class TeamActionIn(BaseModel):
 # ------------------------------------------------------------- endpoints --
 
 @app.post("/api/games/{room_code}/team/buy_service")
+@app.post("/api/games/{room_code}/team/buy_service")
 async def buy_service(room_code: str, body: dict, db: Session = Depends(get_db)):
     token = body.get("token")
     service = body.get("service")  # "shield", "mass_attack", "theft", "boost", "double"
@@ -218,15 +219,14 @@ async def buy_service(room_code: str, body: dict, db: Session = Depends(get_db))
     if game.phase != "upgrade":
         raise HTTPException(400, "Покупка доступна только в фазе Техобслуживания")
     
-    # Цены и проверка
     prices = {"shield": 50, "mass_attack": 80, "theft": 60, "boost": 40, "double": 70}
     if service not in prices:
         raise HTTPException(400, "Неизвестная услуга")
     cost = prices[service]
     
-    # Скидка от Тактики (используем lvl_stealth как Тактику)
+    # Скидка от Тактики (используем lvl_stealth как уровень Тактики)
     if team.lvl_stealth >= 5:
-    cost = int(cost * 0.8)  # 20% скидка
+        cost = int(cost * 0.8)  # 20% скидка
     
     if team.coins < cost:
         raise HTTPException(400, "Недостаточно монет")
@@ -235,6 +235,7 @@ async def buy_service(room_code: str, body: dict, db: Session = Depends(get_db))
     # Применяем эффект
     if service == "shield":
         team.shield_active = True
+        log(db, game, f"«{team.name}» купил щит!")
     elif service == "mass_attack":
         # Наносим урон всем противникам
         for target in game.teams:
@@ -263,8 +264,10 @@ async def buy_service(room_code: str, body: dict, db: Session = Depends(get_db))
         log(db, game, f"«{team.name}» украл {stolen} монет у «{target.name}»")
     elif service == "boost":
         team.free_upgrade = True
+        log(db, game, f"«{team.name}» купил ускорение (бесплатное улучшение)")
     elif service == "double":
         team.double_action = True
+        log(db, game, f"«{team.name}» купил двойной ход")
     
     db.commit()
     await push(db, game)
