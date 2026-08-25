@@ -86,6 +86,24 @@ function startPolling() {
         } catch (e) {}
     }, 3000);
 }
+        // ---- Покупка услуг ----
+async function buyService(service) {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room');
+    const token = params.get('token');
+    try {
+        const res = await apiPost(`/api/games/${room}/team/buy_service`, { token, service });
+        document.getElementById('serviceMsg').textContent = '✅ Услуга куплена!';
+        // обновляем состояние
+        const data = await apiGet(`/api/games/${room}/state?token=${token}&role=team`);
+        if (data.type === 'state') {
+            gameState = data;
+            render();
+        }
+    } catch(e) {
+        document.getElementById('serviceMsg').textContent = '❌ ' + e.message;
+    }
+}
         
         async function initTeam() {
             const params = new URLSearchParams(window.location.search);
@@ -170,7 +188,26 @@ function startPolling() {
             } else {
                 upgradeSection.style.display = 'none';
             }
-
+if (s.phase === 'upgrade' && s.upgrade_costs) {
+    upgradeSection.style.display = 'block';
+    // ... существующий код ...
+    document.getElementById('servicesSection').style.display = 'block';   // добавить эту строку
+} else {
+    upgradeSection.style.display = 'none';
+    document.getElementById('servicesSection').style.display = 'none';   // добавить эту строку
+}
+            <div id="servicesSection" style="display:none; margin-top:20px;">
+    <h4>⭐ Разовые услуги</h4>
+    <div class="action-btn-group">
+        <button onclick="buyService('shield')" class="secondary">🛡️ Щит (50)</button>
+        <button onclick="buyService('mass_attack')" class="danger">💥 Массовая атака (80)</button>
+        <button onclick="buyService('theft')" class="yellow">💰 Кража (60)</button>
+        <button onclick="buyService('boost')" class="mint">⚡ Ускорение (40)</button>
+        <button onclick="buyService('double')" class="secondary">🌀 Двойной ход (70)</button>
+    </div>
+    <div id="serviceMsg" class="muted"></div>
+</div>
+            
             // Битва
             const battleSection = document.getElementById('battleSection');
             const noBattleMsg = document.getElementById('noBattleMsg');
@@ -264,7 +301,7 @@ function startPolling() {
                 document.getElementById('actionMsg').textContent = '❌ ' + e.message;
             }
         }
-
+ 
         initTeam();
     </script>
 </body>
